@@ -1,16 +1,8 @@
 name: Deploy to Surge
 
 on:
-  workflow_dispatch:
-    inputs:
-      zip_url:
-        description: URL of the ZIP to deploy
-        required: true
-        type: string
-      run_token:
-        description: Unique token for this run
-        required: true
-        type: string
+  repository_dispatch:
+    types: [deploy]
 
 jobs:
   deploy:
@@ -31,52 +23,29 @@ jobs:
 
       - name: Download and extract ZIP
         run: |
-          curl -L --retry 3 --max-time 120 -o project.zip "${{ github.event.inputs.zip_url }}"
+          curl -L --retry 3 --max-time 120 -o project.zip "${{ github.event.client_payload.zip_url }}"
           mkdir -p project_raw
           unzip -q project.zip -d project_raw/
           PACKAGE_JSON=$(find project_raw -name package.json -not -path '*/node_modules/*' | sort | head -1)
           echo "PROJECT_DIR=$(dirname $PACKAGE_JSON)" >> $GITHUB_ENV
 
-      - name: Clean Lovable references
+      - name: Remove Lovable packages from package.json
         run: |
           cd "$PROJECT_DIR"
           for f in .lovable bun.lock bunfig.toml AGENTS.md src/lib/lovable-error-reporting.ts; do
             [ -e "$f" ] && rm -rf "$f" && echo "Deleted: $f" || true
           done
-          node -e "
-            const fs=require('fs');
-            const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
-            ['dependencies','devDependencies'].forEach(k=>{
-              if(!pkg[k])return;
-              Object.keys(pkg[k]).filter(p=>p.startsWith('@lovable.dev')).forEach(p=>{
-                delete pkg[k][p];console.log('Removed: '+p);
-              });
-            });
-            if(!pkg.devDependencies)pkg.devDependencies={};
-            if(!pkg.devDependencies['@vitejs/plugin-react']&&!pkg.dependencies?.['@vitejs/plugin-react'])
-              pkg.devDependencies['@vitejs/plugin-react']='^4.0.0';
-            fs.writeFileSync('package.json',JSON.stringify(pkg,null,2));
-          "
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));['dependencies','devDependencies'].forEach(k=>{if(!p[k])return;Object.keys(p[k]).filter(x=>x.startsWith('@lovable.dev')).forEach(x=>{delete p[k][x];console.log('Removed '+x)})});if(!p.devDependencies)p.devDependencies={};if(!p.devDependencies['@vitejs/plugin-react']&&!p.dependencies?.['@vitejs/plugin-react'])p.devDependencies['@vitejs/plugin-react']='^4.0.0';fs.writeFileSync('package.json',JSON.stringify(p,null,2))"
 
-      - name: Replace Lovable vite.config if needed
+      - name: Replace Lovable vite config
         run: |
           cd "$PROJECT_DIR"
-          CONFIG=$(ls vite.config.ts vite.config.js 2>/dev/null | head -1)
-          if [ -n "$CONFIG" ] && grep -q '@lovable.dev' "$CONFIG"; then
-            cat > "$CONFIG" << 'VEOF'
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "path";
-export default defineConfig({
-  plugins: [react()],
-  resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
-  build: { outDir: "dist" },
-});
-VEOF
-            echo "Replaced $CONFIG with standard Vite config"
-          else
-            echo "vite.config is fine, no changes needed"
-          fi
+          for cfg in vite.config.ts vite.config.js; do
+            if [ -f "$cfg" ] && grep -q '@lovable.dev' "$cfg"; then
+              printf 'import { defineConfig } from "vite";\nimport react from "@vitejs/plugin-react";\nimport path from "path";\nexport default defineConfig({\n  plugins: [react()],\n  resolve: { alias: { "@": path.resolve(__dirname, "./src") } },\n  build: { outDir: "dist" },\n});\n' > "$cfg"
+              echo "Replaced $cfg"
+            fi
+          done
 
       - name: Install dependencies
         run: |
@@ -88,23 +57,17 @@ VEOF
           cd "$PROJECT_DIR"
           npm run build
 
-      - name: Detect build output and add 200.html
+      - name: Find build output
         run: |
           for d in "$PROJECT_DIR/dist/client" "$PROJECT_DIR/dist" "$PROJECT_DIR/build" "$PROJECT_DIR/out"; do
             if [ -d "$d" ] && [ -f "$d/index.html" ]; then
-              echo "DEPLOY_DIR=$d" >> $GITHUB_ENV
-              echo "Deploy directory: $d"
-              break
+              echo "DEPLOY_DIR=$d" >> $GITHUB_ENV && echo "Deploy dir: $d" && break
             fi
           done
           if [ -z "$DEPLOY_DIR" ]; then
-            echo "ERROR: No build output with index.html found!"
-            ls -la "$PROJECT_DIR/"
-            find "$PROJECT_DIR" -name index.html -not -path '*/node_modules/*' | head -10
-            exit 1
+            echo "No build output found!" && ls -la "$PROJECT_DIR/" && exit 1
           fi
           cp "$DEPLOY_DIR/index.html" "$DEPLOY_DIR/200.html"
-          echo "Added 200.html for SPA routing"
 
       - name: Deploy to Surge
         env:
@@ -115,12 +78,12 @@ VEOF
           surge "$DEPLOY_DIR" "$SUB.surge.sh" --token "$SURGE_TOKEN"
           echo "SURGE_URL=https://$SUB.surge.sh" >> $GITHUB_ENV
 
-      - name: Write result to results branch
+      - name: Write result
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           git fetch origin results 2>/dev/null && git checkout results || git checkout --orphan results
           git rm -rf . 2>/dev/null || true
-          echo "$SURGE_URL" > "result-${{ github.event.inputs.run_token }}.txt"
+          echo "$SURGE_URL" > "result-${{ github.event.client_payload.run_token }}.txt"
           git add . && git commit -m "Result: $SURGE_URL"
           git push origin results --force-with-lease 2>/dev/null || git push origin results

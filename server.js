@@ -13,7 +13,11 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Set up upload storage
-const upload = multer({ dest: path.join(__dirname, "temp") });
+const tempDir = path.join(__dirname, "temp");
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true });
+}
+const upload = multer({ dest: tempDir });
 
 // Store active job logs
 const activeJobs = new Map();
@@ -322,6 +326,12 @@ function runCommand(command, cwd, log) {
     });
   });
 }
+
+// Global error handling middleware to prevent HTML error pages on failure
+app.use((err, req, res, next) => {
+  console.error("Unhandled server error:", err);
+  res.status(500).json({ error: err.message || "Internal Server Error" });
+});
 
 // Start server
 app.listen(port, () => {

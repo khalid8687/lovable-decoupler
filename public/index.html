@@ -94,6 +94,21 @@
         </div>
       </div>
 
+      <!-- Result Card (Link Box under Terminal) -->
+      <div class="card glass result-card" id="result-card" style="display: none;">
+        <div class="result-header">
+          <svg class="success-check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          <h3>Deployment Complete!</h3>
+        </div>
+        <div class="result-link-box">
+          <a href="#" target="_blank" id="result-link">Waiting for URL...</a>
+          <button class="btn-copy" id="result-copy-btn">Copy Link</button>
+        </div>
+        <button class="btn-ghost" id="result-restart-btn">Deploy Another Archive</button>
+      </div>
+
       <!-- Success Card -->
       <div class="card glass success-card" id="success-card" style="display: none;">
         <div class="success-icon-wrap">

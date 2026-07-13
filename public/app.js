@@ -16,6 +16,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const copyBtn = document.getElementById("copy-btn");
   const restartBtn = document.getElementById("restart-btn");
 
+  const resultCard = document.getElementById("result-card");
+  const resultLink = document.getElementById("result-link");
+  const resultCopyBtn = document.getElementById("result-copy-btn");
+  const resultRestartBtn = document.getElementById("result-restart-btn");
+
   let selectedFile = null;
 
   // Handle Drag & Drop
@@ -122,8 +127,8 @@ document.addEventListener("DOMContentLoaded", () => {
         statusBadge.style.color = "#10b981";
         statusBadge.style.background = "rgba(16, 185, 129, 0.1)";
         
-        // Extract Surge URL from log
-        const urlMatch = logItem.message.match(/http:\/\/([\w.-]+)/);
+        // Extract Surge URL from log (supports both http and https)
+        const urlMatch = logItem.message.match(/https?:\/\/([\w.-]+)/);
         const url = urlMatch ? urlMatch[0] : "#";
         
         setTimeout(() => {
@@ -155,10 +160,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function showSuccess(url) {
-    terminalCard.style.display = "none";
-    successCard.style.display = "block";
-    deployLink.href = url;
-    deployLink.textContent = url;
+    // Keep terminal visible, but update result card directly underneath
+    resultLink.href = url;
+    resultLink.textContent = url;
+    resultCard.style.display = "block";
+    
+    // Smooth scroll down to show the result card fully
+    setTimeout(() => {
+      resultCard.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 100);
   }
 
   // Copy Link to Clipboard
@@ -177,6 +187,37 @@ document.addEventListener("DOMContentLoaded", () => {
   // Restart Flow
   restartBtn.addEventListener("click", () => {
     successCard.style.display = "none";
+    deployForm.parentElement.style.display = "block";
+    
+    // Reset file selection
+    selectedFile = null;
+    fileInput.value = "";
+    fileBadge.style.display = "none";
+    submitBtn.disabled = true;
+    deployForm.reset();
+  });
+
+  // Copy Link to Clipboard for Result Card
+  resultCopyBtn.addEventListener("click", () => {
+    const urlText = resultLink.textContent;
+    navigator.clipboard.writeText(urlText).then(() => {
+      resultCopyBtn.textContent = "Copied!";
+      resultCopyBtn.style.background = "#10b981";
+      resultCopyBtn.style.borderColor = "#10b981";
+      resultCopyBtn.style.color = "white";
+      setTimeout(() => {
+        resultCopyBtn.textContent = "Copy Link";
+        resultCopyBtn.style.background = "rgba(168, 85, 247, 0.2)";
+        resultCopyBtn.style.borderColor = "var(--primary)";
+        resultCopyBtn.style.color = "var(--fg)";
+      }, 2000);
+    });
+  });
+
+  // Restart Flow from Result Card
+  resultRestartBtn.addEventListener("click", () => {
+    resultCard.style.display = "none";
+    terminalCard.style.display = "none";
     deployForm.parentElement.style.display = "block";
     
     // Reset file selection

@@ -1,0 +1,177 @@
+name: Deploy to Surge
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_url:
+        description: 'Download URL of the ZIP archive to deploy'
+        required: true
+        type: string
+      run_token:
+        description: 'Unique token to identify this run result'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo (for result writing)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download ZIP archive
+        run: |
+          echo "Downloading from: ${{ github.event.inputs.zip_url }}"
+          curl -L --retry 3 --max-time 120 -o project.zip "${{ github.event.inputs.zip_url }}"
+          ls -lh project.zip
+
+      - name: Extract ZIP
+        run: |
+          mkdir -p project_raw
+          unzip -q project.zip -d project_raw/
+          echo "Extraction complete."
+          ls project_raw/
+
+      - name: Find project root (locate package.json)
+        run: |
+          PACKAGE_JSON=$(find project_raw -name "package.json" -not -path "*/node_modules/*" | sort | head -1)
+          PROJECT_DIR=$(dirname "$PACKAGE_JSON")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+          echo "Found project root: $PROJECT_DIR"
+
+      - name: Clean Lovable references
+        run: |
+          cd "$PROJECT_DIR"
+          
+          # Delete Lovable proprietary files
+          for f in .lovable bun.lock bunfig.toml AGENTS.md src/lib/lovable-error-reporting.ts; do
+            [ -e "$f" ] && rm -rf "$f" && echo "Deleted: $f" || true
+          done
+
+          # Remove @lovable.dev/vite-tanstack-config from package.json
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            let changed = false;
+            ['dependencies','devDependencies'].forEach(k => {
+              if (pkg[k] && pkg[k]['@lovable.dev/vite-tanstack-config']) {
+                delete pkg[k]['@lovable.dev/vite-tanstack-config'];
+                changed = true;
+              }
+            });
+            if (changed) {
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+              console.log(\"Removed @lovable.dev/vite-tanstack-config from package.json\");
+            }
+          "
+
+          # Replace vite.config.ts if it uses the Lovable plugin
+          if grep -q '@lovable.dev/vite-tanstack-config' vite.config.ts 2>/dev/null; then
+            cat > vite.config.ts << 'VITEEOF'
+import { defineConfig } from "vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import viteReact from "@vitejs/plugin-react";
+import tsConfigPaths from "vite-tsconfig-paths";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [
+    tsConfigPaths({ projects: ["./tsconfig.json"] }),
+    tanstackStart({
+      server: { entry: "server" },
+      prerender: {
+        enabled: true,
+      },
+    }),
+    viteReact(),
+    tailwindcss(),
+  ],
+});
+VITEEOF
+            echo "Migrated vite.config.ts to standard Vite configuration"
+          fi
+
+          # Clean __root.tsx
+          if [ -f "src/routes/__root.tsx" ]; then
+            node -e "
+              const fs = require('fs');
+              let c = fs.readFileSync('src/routes/__root.tsx', 'utf8');
+              let changed = false;
+              const before = c;
+              c = c.replace('import { reportLovableError } from \"../lib/lovable-error-reporting\";', '');
+              c = c.replace(/useEffect\(\s*\(\)\s*=>\s*\{\s*reportLovableError\([^)]*\);\s*\}\s*,\s*\[error\]\s*\);?/g, '');
+              c = c.replace(/\{\s*(property|name):\s*\"(og:image|twitter:image)\"[\s\S]*?lovable\.app[\s\S]*?\},\s*/g, '');
+              if (c !== before) { fs.writeFileSync('src/routes/__root.tsx', c); console.log('Cleaned __root.tsx'); }
+            "
+          fi
+
+          # Delete all CNAME files recursively (case-insensitive)
+          find . -iname "cname" -not -path "*/node_modules/*" -delete && echo "Deleted CNAME files" || true
+
+      - name: Install dependencies
+        run: |
+          cd "$PROJECT_DIR"
+          npm install --legacy-peer-deps
+
+      - name: Install rolldown native bindings (Linux)
+        run: |
+          cd "$PROJECT_DIR"
+          npm install --save-optional @rolldown/binding-linux-x64-gnu || echo "Optional binding install skipped"
+
+      - name: Build project
+        run: |
+          cd "$PROJECT_DIR"
+          npm run build
+
+      - name: Detect deploy directory
+        run: |
+          for d in "$PROJECT_DIR/dist/client" "$PROJECT_DIR/dist" "$PROJECT_DIR/build" "$PROJECT_DIR/out" "$PROJECT_DIR"; do
+            if [ -d "$d" ]; then
+              echo "DEPLOY_DIR=$d" >> $GITHUB_ENV
+              echo "Deploy directory: $d"
+              break
+            fi
+          done
+
+      - name: Deploy to Surge
+        env:
+          SURGE_TOKEN: ${{ secrets.SURGE_TOKEN }}
+        run: |
+          npm install -g surge
+          RANDOM_SUB="decoupled-$(head /dev/urandom | tr -dc a-z0-9 | head -c 6)"
+          TARGET_DOMAIN="${RANDOM_SUB}.surge.sh"
+          echo "Deploying to https://$TARGET_DOMAIN ..."
+          surge "$DEPLOY_DIR" "$TARGET_DOMAIN" --token "$SURGE_TOKEN"
+          echo "SURGE_URL=https://$TARGET_DOMAIN" >> $GITHUB_ENV
+          echo "Deployed! URL: https://$TARGET_DOMAIN"
+
+      - name: Write result to results branch
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          
+          # Switch to results branch or create it
+          git fetch origin results 2>/dev/null && git checkout results || git checkout --orphan results
+          
+          # Remove all files (orphan branch will be empty, existing will have files)
+          git rm -rf . 2>/dev/null || true
+          
+          # Write the result file
+          RUN_TOKEN="${{ github.event.inputs.run_token }}"
+          echo "$SURGE_URL" > "result-${RUN_TOKEN}.txt"
+          
+          git add "result-${RUN_TOKEN}.txt"
+          git commit -m "Result for run token ${RUN_TOKEN}: $SURGE_URL"
+          git push origin results --force-with-lease 2>/dev/null || git push origin results
+          
+          echo "Result written to results branch."

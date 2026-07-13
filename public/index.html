@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lovable Decoupler & Surge Publisher</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="aurora-blob blob-1"></div>
+  <div class="aurora-blob blob-2"></div>
+  <div class="grid-bg"></div>
+
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 22 7 22 17 12 22 2 17 2 7" />
+          <polyline points="12 2 12 12 22 17" />
+          <line x1="12" y1="12" x2="2" y2="17" />
+          <line x1="12" y1="12" x2="12" y2="22" />
+        </svg>
+        <h1>Lovable Decoupler</h1>
+      </div>
+      <p class="tagline">Clean watermarks, remove dependencies, and publish permanently to Surge.sh in one click</p>
+    </header>
+
+    <main class="app-main">
+      <div class="card glass">
+        <form id="deploy-form">
+          <!-- File Drop Zone -->
+          <div class="file-drop-zone" id="drop-zone">
+            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <p class="upload-text">Drag and drop your Lovable codebase <span>.zip</span> here</p>
+            <p class="upload-hint">or click to browse from folder</p>
+            <input type="file" id="file-input" name="file" accept=".zip" required style="display: none;">
+            <div class="selected-file-badge" id="file-badge" style="display: none;">
+              <span class="file-name" id="file-name">codebase.zip</span>
+              <button type="button" class="remove-file-btn" id="remove-file">&times;</button>
+            </div>
+          </div>
+
+          <!-- Configuration Fields -->
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="domain">Surge Custom Subdomain (Optional)</label>
+              <input type="text" id="domain" name="domain" placeholder="e.g. my-app.surge.sh">
+              <span class="field-hint">Leave blank to let Surge assign a random, clean domain name.</span>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="email">Surge Email (Optional)</label>
+                <input type="email" id="email" name="email" placeholder="jobiq-navigator-2026@temp.org">
+              </div>
+              <div class="form-group">
+                <label for="password">Surge Password (Optional)</label>
+                <input type="password" id="password" name="password" placeholder="••••••••">
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary" id="submit-btn" disabled>
+            <span>Decrypt & Publish Site</span>
+            <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </button>
+        </form>
+      </div>
+
+      <!-- Log Terminal & Progress Display -->
+      <div class="card glass terminal-card" id="terminal-card" style="display: none;">
+        <div class="terminal-header">
+          <div class="terminal-dots">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+          <span class="terminal-title">Compilation & Deployment Stream</span>
+          <span class="status-badge" id="status-badge">Processing</span>
+        </div>
+        <div class="terminal-body" id="log-console">
+          <div class="log-line system">Waiting for process initiation...</div>
+        </div>
+      </div>
+
+      <!-- Success Card -->
+      <div class="card glass success-card" id="success-card" style="display: none;">
+        <div class="success-icon-wrap">
+          <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <h2>Deployment Successful!</h2>
+        <p>Your codebase was successfully cleaned of Lovable watermarks and published permanently to the decentralized web.</p>
+        
+        <div class="success-link-box">
+          <a href="#" target="_blank" id="deploy-link">https://my-app.surge.sh</a>
+          <button class="copy-btn" id="copy-btn">Copy Link</button>
+        </div>
+        
+        <button class="btn-ghost" id="restart-btn">Deploy Another Archive</button>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

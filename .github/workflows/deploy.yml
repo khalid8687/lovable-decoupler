@@ -49,6 +49,28 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
           echo "Found project root: $PROJECT_DIR"
 
+      - name: Clean Lovable references
+        run: |
+          cd "$PROJECT_DIR"
+          for f in .lovable bun.lock bunfig.toml AGENTS.md src/lib/lovable-error-reporting.ts; do
+            [ -e "$f" ] && rm -rf "$f" && echo "Deleted: $f" || true
+          done
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            let changed = false;
+            ['dependencies','devDependencies'].forEach(k => {
+              if (pkg[k] && pkg[k]['@lovable.dev/vite-tanstack-config']) {
+                delete pkg[k]['@lovable.dev/vite-tanstack-config'];
+                changed = true;
+              }
+            });
+            if (changed) {
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+              console.log('Removed @lovable.dev/vite-tanstack-config');
+            }
+          "
+
       - name: Install dependencies
         run: |
           cd "$PROJECT_DIR"
@@ -61,13 +83,24 @@ jobs:
 
       - name: Detect deploy directory
         run: |
-          for d in "$PROJECT_DIR/dist/client" "$PROJECT_DIR/dist" "$PROJECT_DIR/build" "$PROJECT_DIR/out" "$PROJECT_DIR"; do
-            if [ -d "$d" ]; then
+          for d in "$PROJECT_DIR/dist/client" "$PROJECT_DIR/dist" "$PROJECT_DIR/build" "$PROJECT_DIR/out"; do
+            if [ -d "$d" ] && [ -f "$d/index.html" ]; then
               echo "DEPLOY_DIR=$d" >> $GITHUB_ENV
               echo "Deploy directory: $d"
               break
             fi
           done
+          if [ -z "$DEPLOY_DIR" ]; then
+            echo "ERROR: Could not find build output with index.html!"
+            echo "Searching for index.html..."
+            find "$PROJECT_DIR" -name "index.html" -not -path "*/node_modules/*" | head -5
+            exit 1
+          fi
+
+      - name: Add 200.html for SPA routing
+        run: |
+          cp "$DEPLOY_DIR/index.html" "$DEPLOY_DIR/200.html"
+          echo "Added 200.html for SPA client-side routing"
 
       - name: Deploy to Surge
         env:

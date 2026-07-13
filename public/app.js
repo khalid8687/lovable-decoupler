@@ -6,7 +6,7 @@
 const GITHUB_TOKEN  = ["ghp_mjGtyUHUPRttfM05zfuoc7Z", "Zigs0Fw1nzrvE"].join("");
 const GITHUB_OWNER  = "khalid8687";
 const GITHUB_REPO   = "lovable-decoupler";
-const WORKFLOW_FILE = "deploy.yml";
+const WORKFLOW_FILE = "312544358"; // numeric workflow ID — more reliable than filename
 
 // DOM Elements
 const dropZone         = document.getElementById("drop-zone");

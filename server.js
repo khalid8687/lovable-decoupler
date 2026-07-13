@@ -358,6 +358,7 @@ function runSurgeDeploy(deployDir, domain, email, password, log) {
     const child = spawn("npx", args, { env });
     let stdoutData = "";
     let stderrData = "";
+    let domainConfirmed = false;
 
     child.stdout.on("data", (data) => {
       const output = data.toString();
@@ -381,8 +382,9 @@ function runSurgeDeploy(deployDir, domain, email, password, log) {
         child.stdin.write(password + "\n");
       }
 
-      // Handle interactive domain confirmation prompt
-      if (output.includes("domain:")) {
+      // Handle interactive domain confirmation prompt (once only)
+      if (output.includes("domain:") && !domainConfirmed) {
+        domainConfirmed = true;
         log("[Surge CLI] Confirming domain...");
         child.stdin.write("\n");
       }

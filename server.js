@@ -380,6 +380,12 @@ function runSurgeDeploy(deployDir, domain, email, password, log) {
         log("[Surge CLI] Inputting password...");
         child.stdin.write(password + "\n");
       }
+
+      // Handle interactive domain confirmation prompt
+      if (output.includes("domain:")) {
+        log("[Surge CLI] Confirming domain...");
+        child.stdin.write("\n");
+      }
     });
 
     child.stderr.on("data", (data) => {

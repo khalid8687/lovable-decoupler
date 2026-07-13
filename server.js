@@ -144,29 +144,34 @@ async function processDeployment(jobId, zipPath, options) {
     }
     log(`Detected deploy directory: ${path.relative(workDir, deployDir) || "."}`);
 
-    // If no custom domain is specified, delete any CNAME file that might have been bundled in the zip
-    // to prevent Surge from trying to publish to a domain the user doesn't own.
-    if (!options.domain) {
-      const cnamePaths = [
-        path.join(deployDir, "CNAME"),
-        path.join(workDir, "public", "CNAME"),
-        path.join(workDir, "CNAME")
-      ];
-      cnamePaths.forEach(p => {
-        if (fs.existsSync(p)) {
-          try {
-            fs.unlinkSync(p);
-            log(`Deleted pre-existing CNAME file to allow random domain generation: ${path.relative(workDir, p)}`);
-          } catch (e) {
-            console.error(`Failed to delete CNAME file: ${e.message}`);
-          }
-        }
-      });
+    // Delete any pre-existing CNAME files in the build to prevent Surge from using old settings
+    const allCnameFiles = findFilesRecursive(workDir, (file) => file.toLowerCase() === "cname");
+    allCnameFiles.forEach(p => {
+      try {
+        fs.unlinkSync(p);
+        log(`Deleted legacy CNAME file: ${path.relative(workDir, p)}`);
+      } catch (e) {
+        console.error(`Failed to delete CNAME file: ${e.message}`);
+      }
+    });
+
+    // Resolve the domain name to deploy to
+    let targetDomain = options.domain ? options.domain.trim() : "";
+    if (targetDomain) {
+      targetDomain = targetDomain.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+      if (!targetDomain.endsWith(".surge.sh")) {
+        targetDomain += ".surge.sh";
+      }
+    } else {
+      // Generate a highly unique random subdomain to avoid collisions with other users
+      const randomSub = "decoupled-" + Math.random().toString(36).substring(2, 8);
+      targetDomain = `${randomSub}.surge.sh`;
+      log(`Generated unique random subdomain: ${targetDomain}`);
     }
 
     // 5. Deploy to Surge using interactive spawn to supply credentials
     log("Deploying to Surge.sh...");
-    const deployOutput = await runSurgeDeploy(deployDir, options.domain, options.email, options.password, log);
+    const deployOutput = await runSurgeDeploy(deployDir, targetDomain, options.email, options.password, log);
 
     // Find the published domain from surge output
     const match = deployOutput.match(/Success! - Published to ([\w.-]+)/);

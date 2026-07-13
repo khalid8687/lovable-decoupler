@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import AdmZip from "adm-zip";
 import { fileURLToPath } from "url";
 
@@ -144,11 +144,9 @@ async function processDeployment(jobId, zipPath, options) {
     }
     log(`Detected deploy directory: ${path.relative(workDir, deployDir) || "."}`);
 
-    // 5. Deploy to Surge
+    // 5. Deploy to Surge using interactive spawn to supply credentials
     log("Deploying to Surge.sh...");
-    const domainArg = options.domain ? ` ${options.domain}` : "";
-    const deployCmd = `npx surge "${deployDir}"${domainArg} --email "${options.email}" --password "${options.password}"`;
-    const deployOutput = await runCommand(deployCmd, workDir, log);
+    const deployOutput = await runSurgeDeploy(deployDir, options.domain, options.email, options.password, log);
 
     // Find the published domain from surge output
     const match = deployOutput.match(/Success! - Published to ([\w.-]+)/);
@@ -338,6 +336,66 @@ function runCommand(command, cwd, log) {
         resolve(stdoutData);
       } else {
         reject(new Error(`Command '${command}' exited with code ${code}`));
+      }
+    });
+  });
+}
+
+// Helper to run interactive Surge deployments using child process spawn
+function runSurgeDeploy(deployDir, domain, email, password, log) {
+  return new Promise((resolve, reject) => {
+    log(`Starting Surge deployment process for domain: ${domain || "random"}...`);
+    
+    const domainArg = domain ? [domain] : [];
+    const args = ["-p", "node@22.12.0", "surge", deployDir, ...domainArg];
+    
+    // Force Node to prefer IPv4 when resolving localhost to bypass IPv6 connection refuse bugs
+    const env = {
+      ...process.env,
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
+    };
+
+    const child = spawn("npx", args, { env });
+    let stdoutData = "";
+    let stderrData = "";
+
+    child.stdout.on("data", (data) => {
+      const output = data.toString();
+      stdoutData += output;
+      
+      // Log output to frontend console
+      const lines = output.trim().split("\n");
+      lines.forEach(line => {
+        if (line.trim()) log(line.trim());
+      });
+
+      // Handle interactive email prompt
+      if (output.includes("email:")) {
+        log(`[Surge CLI] Inputting email: ${email}`);
+        child.stdin.write(email + "\n");
+      }
+      
+      // Handle interactive password prompt
+      if (output.includes("password:")) {
+        log("[Surge CLI] Inputting password...");
+        child.stdin.write(password + "\n");
+      }
+    });
+
+    child.stderr.on("data", (data) => {
+      const output = data.toString();
+      stderrData += output;
+      const lines = output.trim().split("\n");
+      lines.forEach(line => {
+        if (line.trim()) log(`[Warn/Stderr] ${line.trim()}`);
+      });
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdoutData);
+      } else {
+        reject(new Error(`Surge deployment failed with exit code ${code}.`));
       }
     });
   });

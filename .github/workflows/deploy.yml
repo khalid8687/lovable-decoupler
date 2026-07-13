@@ -52,24 +52,102 @@ jobs:
       - name: Clean Lovable references
         run: |
           cd "$PROJECT_DIR"
+
+          # Delete proprietary files
           for f in .lovable bun.lock bunfig.toml AGENTS.md src/lib/lovable-error-reporting.ts; do
             [ -e "$f" ] && rm -rf "$f" && echo "Deleted: $f" || true
           done
+
+          # Remove @lovable.dev packages from package.json
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             let changed = false;
             ['dependencies','devDependencies'].forEach(k => {
-              if (pkg[k] && pkg[k]['@lovable.dev/vite-tanstack-config']) {
-                delete pkg[k]['@lovable.dev/vite-tanstack-config'];
+              if (!pkg[k]) return;
+              Object.keys(pkg[k]).filter(p => p.startsWith('@lovable.dev')).forEach(p => {
+                delete pkg[k][p];
                 changed = true;
-              }
+                console.log('Removed: ' + p);
+              });
             });
-            if (changed) {
-              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-              console.log('Removed @lovable.dev/vite-tanstack-config');
-            }
+            if (changed) fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
+
+          # Replace vite.config.ts if it uses @lovable.dev config
+          if grep -q '@lovable.dev' vite.config.ts 2>/dev/null; then
+            echo "Replacing vite.config.ts (uses @lovable.dev)..."
+            # Check what kind of project this is
+            if grep -q 'tanstack' package.json 2>/dev/null; then
+              cat > vite.config.ts << 'VITEEOF'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    outDir: "dist",
+  },
+});
+VITEEOF
+            else
+              cat > vite.config.ts << 'VITEEOF'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    outDir: "dist",
+  },
+});
+VITEEOF
+            fi
+            echo "vite.config.ts replaced."
+          fi
+
+          # Make sure @vitejs/plugin-react is in devDependencies
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            if (!pkg.devDependencies) pkg.devDependencies = {};
+            if (!pkg.devDependencies['@vitejs/plugin-react'] && !pkg.dependencies?.['@vitejs/plugin-react']) {
+              pkg.devDependencies['@vitejs/plugin-react'] = '^4.0.0';
+              console.log('Added @vitejs/plugin-react to devDependencies');
+            }
+            if (!pkg.devDependencies['vite'] && !pkg.dependencies?.['vite']) {
+              pkg.devDependencies['vite'] = '^5.0.0';
+              console.log('Added vite to devDependencies');
+            }
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+
+          # Clean __root.tsx of Lovable error reporting
+          if [ -f "src/routes/__root.tsx" ]; then
+            node -e "
+              const fs = require('fs');
+              let c = fs.readFileSync('src/routes/__root.tsx', 'utf8');
+              const before = c;
+              c = c.replace('import { reportLovableError } from \"../lib/lovable-error-reporting\";', '');
+              c = c.replace(/useEffect\(\s*\(\)\s*=>\s*\{\s*reportLovableError\([^)]*\);\s*\}\s*,\s*\[error\]\s*\);?/g, '');
+              if (c !== before) { fs.writeFileSync('src/routes/__root.tsx', c); console.log('Cleaned __root.tsx'); }
+            "
+          fi
+
+          # Delete CNAME files
+          find . -iname "cname" -not -path "*/node_modules/*" -delete && echo "Deleted CNAME files" || true
 
       - name: Install dependencies
         run: |
@@ -92,8 +170,10 @@ jobs:
           done
           if [ -z "$DEPLOY_DIR" ]; then
             echo "ERROR: Could not find build output with index.html!"
+            echo "Contents of project dir:"
+            ls -la "$PROJECT_DIR/"
             echo "Searching for index.html..."
-            find "$PROJECT_DIR" -name "index.html" -not -path "*/node_modules/*" | head -5
+            find "$PROJECT_DIR" -name "index.html" -not -path "*/node_modules/*" | head -10
             exit 1
           fi
 

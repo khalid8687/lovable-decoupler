@@ -114,6 +114,16 @@ async function processDeployment(jobId, zipPath, options) {
     log("Installing dependencies via npm...");
     await runCommand("npm install", workDir, log);
 
+    // If on Linux, explicitly install the rolldown native binding to bypass the npm v10 optional dependency bug
+    if (process.platform === "linux") {
+      log("Installing native bindings for Linux x64...");
+      try {
+        await runCommand("npm install --save-optional @rolldown/binding-linux-x64-gnu", workDir, log);
+      } catch (e) {
+        log(`Warning: Failed to install optional native bindings: ${e.message}`);
+      }
+    }
+
     // 3. Build the project
     log("Building the project for production...");
     await runCommand("npm run build", workDir, log);

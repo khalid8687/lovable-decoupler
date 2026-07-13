@@ -144,6 +144,26 @@ async function processDeployment(jobId, zipPath, options) {
     }
     log(`Detected deploy directory: ${path.relative(workDir, deployDir) || "."}`);
 
+    // If no custom domain is specified, delete any CNAME file that might have been bundled in the zip
+    // to prevent Surge from trying to publish to a domain the user doesn't own.
+    if (!options.domain) {
+      const cnamePaths = [
+        path.join(deployDir, "CNAME"),
+        path.join(workDir, "public", "CNAME"),
+        path.join(workDir, "CNAME")
+      ];
+      cnamePaths.forEach(p => {
+        if (fs.existsSync(p)) {
+          try {
+            fs.unlinkSync(p);
+            log(`Deleted pre-existing CNAME file to allow random domain generation: ${path.relative(workDir, p)}`);
+          } catch (e) {
+            console.error(`Failed to delete CNAME file: ${e.message}`);
+          }
+        }
+      });
+    }
+
     // 5. Deploy to Surge using interactive spawn to supply credentials
     log("Deploying to Surge.sh...");
     const deployOutput = await runSurgeDeploy(deployDir, options.domain, options.email, options.password, log);
@@ -493,6 +513,7 @@ function runSurgeDeploy(deployDir, domain, email, password, log) {
         domainConfirmed = true;
         log("[Surge CLI] Confirming domain...");
         child.stdin.write("\n");
+        child.stdin.end(); // Close stdin to ensure the close event fires cleanly
       }
     });
 

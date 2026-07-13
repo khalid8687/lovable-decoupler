@@ -1,12 +1,11 @@
 // ============================================================
 // GitHub Actions-powered Deploy Client
-// No server needed — 100% free, runs via GitHub Actions
+// Uses repository_dispatch (more reliable than workflow_dispatch)
 // ============================================================
 
 const GITHUB_TOKEN  = ["ghp_mjGtyUHUPRttfM05zfuoc7Z", "Zigs0Fw1nzrvE"].join("");
 const GITHUB_OWNER  = "khalid8687";
 const GITHUB_REPO   = "lovable-decoupler";
-const WORKFLOW_FILE = "312544358"; // numeric workflow ID — more reliable than filename
 
 // DOM Elements
 const dropZone         = document.getElementById("drop-zone");
@@ -27,7 +26,7 @@ const resultRestartBtn = document.getElementById("result-restart-btn");
 let selectedFile = null;
 let pollInterval = null;
 
-// ── Drag & Drop ──────────────────────────────────────────────
+// Drag & Drop
 dropZone.addEventListener("click", () => fileInput.click());
 dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
 dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
@@ -58,7 +57,7 @@ function clearFile() {
   submitBtn.disabled = true;
 }
 
-// ── Logging ──────────────────────────────────────────────────
+// Logging
 function appendLog(message, type = "info") {
   const line = document.createElement("div");
   line.className = `log-line ${type}`;
@@ -77,12 +76,11 @@ function setStatus(text, type) {
   statusBadge.className = "status-badge " + (type || "");
 }
 
-// ── Submit ───────────────────────────────────────────────────
+// Submit
 deployForm.addEventListener("submit", async e => {
   e.preventDefault();
   if (!selectedFile) return;
 
-  // Show terminal
   deployForm.parentElement.style.display = "none";
   terminalCard.style.display = "block";
   resultCard.style.display   = "none";
@@ -92,21 +90,20 @@ deployForm.addEventListener("submit", async e => {
   appendLog("Uploading ZIP to GitHub (secure temporary storage)...");
 
   try {
-    // Step 1: Upload ZIP to GitHub Releases as a temporary asset
-    const zipUrl = await uploadToGitHubRelease(selectedFile);
+    // Step 1: Upload ZIP to GitHub uploads branch
+    const zipUrl = await uploadToGitHub(selectedFile);
     appendLog("Upload complete. Secure URL obtained.");
 
-    // Step 2: Trigger GitHub Actions workflow
+    // Step 2: Trigger via repository_dispatch (bypasses workflow_dispatch validation)
     const runToken = Math.random().toString(36).substring(2, 12);
     appendLog("Triggering GitHub Actions deployment pipeline...");
-    await triggerWorkflow(zipUrl, runToken);
+    await triggerDeploy(zipUrl, runToken);
     appendLog("Workflow triggered! Waiting for GitHub to start the runner...");
     setStatus("Building", "building");
 
-    // Step 3: Wait for runner to pick up, then poll for result
     await sleep(8000);
     appendLog("Runner started. Build + deploy in progress (usually 2-4 minutes)...");
-    appendLog("Steps: Extract \u2192 Clean Lovable \u2192 Install \u2192 Build \u2192 Surge Deploy");
+    appendLog("Steps: Extract → Clean Lovable → Install → Build → Surge Deploy");
 
     startPolling(runToken);
 
@@ -116,8 +113,8 @@ deployForm.addEventListener("submit", async e => {
   }
 });
 
-// ── Upload ZIP via GitHub Contents API (CORS-friendly) ───────
-async function uploadToGitHubRelease(file) {
+// Upload ZIP to GitHub uploads branch via Contents API
+async function uploadToGitHub(file) {
   const headers = {
     "Authorization": "Bearer " + GITHUB_TOKEN,
     "Accept": "application/vnd.github+json",
@@ -125,7 +122,6 @@ async function uploadToGitHubRelease(file) {
     "Content-Type": "application/json"
   };
 
-  // Convert file to base64
   appendLog("Encoding ZIP for upload...");
   const base64Content = await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -134,7 +130,6 @@ async function uploadToGitHubRelease(file) {
     reader.readAsDataURL(file);
   });
 
-  // Upload to uploads branch via Contents API
   const filePath = "uploads/upload-" + Date.now() + ".zip";
   const apiUrl = "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/contents/" + filePath;
 
@@ -154,15 +149,13 @@ async function uploadToGitHubRelease(file) {
     throw new Error("GitHub upload failed: " + res.status + " " + err.substring(0, 200));
   }
 
-  // Return the raw download URL
-  const rawUrl = "https://raw.githubusercontent.com/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/uploads/" + filePath;
-  return rawUrl;
+  return "https://raw.githubusercontent.com/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/uploads/" + filePath;
 }
 
-// ── Trigger GitHub Actions workflow_dispatch ─────────────────
-async function triggerWorkflow(zipUrl, runToken) {
+// Trigger via repository_dispatch (no workflow_dispatch validation issues)
+async function triggerDeploy(zipUrl, runToken) {
   const res = await fetch(
-    "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/actions/workflows/" + WORKFLOW_FILE + "/dispatches",
+    "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/dispatches",
     {
       method: "POST",
       headers: {
@@ -172,28 +165,28 @@ async function triggerWorkflow(zipUrl, runToken) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        ref: "main",
-        inputs: { zip_url: zipUrl, run_token: runToken }
+        event_type: "deploy",
+        client_payload: { zip_url: zipUrl, run_token: runToken }
       })
     }
   );
   if (res.status !== 204) {
     const body = await res.text();
-    throw new Error("Failed to trigger workflow: " + res.status + " - " + body);
+    throw new Error("Failed to trigger deploy: " + res.status + " - " + body);
   }
 }
 
-// ── Poll for result written to results branch ─────────────────
+// Poll for result written to results branch
 function startPolling(runToken) {
   let elapsed = 0;
-  const maxWait = 8 * 60 * 1000; // 8 minutes max
+  const maxWait = 8 * 60 * 1000;
 
   pollInterval = setInterval(async () => {
     elapsed += 5000;
 
     if (elapsed > maxWait) {
       clearInterval(pollInterval);
-      appendLog("Timeout: build is taking too long. Please check GitHub Actions.", "error");
+      appendLog("Timeout: build took too long. Check GitHub Actions.", "error");
       setStatus("Timeout", "failed");
       return;
     }
@@ -216,18 +209,17 @@ function startPolling(runToken) {
         return;
       }
 
-      // Log progress every 30 seconds
       if (elapsed % 30000 === 0) {
         appendLog("Still building... " + timeStr + " elapsed. GitHub Actions is working...");
       }
 
     } catch (e) {
-      // Network error — keep trying silently
+      // Network error - keep trying silently
     }
   }, 5000);
 }
 
-// ── Show success result card ──────────────────────────────────
+// Show success result card
 function showSuccess(url) {
   resultCard.style.display = "block";
   resultLink.href = url;
@@ -235,7 +227,7 @@ function showSuccess(url) {
   resultCard.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-// ── Copy button ───────────────────────────────────────────────
+// Copy button
 resultCopyBtn.addEventListener("click", () => {
   const url = resultLink.textContent;
   navigator.clipboard.writeText(url).then(() => {
@@ -249,7 +241,7 @@ resultCopyBtn.addEventListener("click", () => {
   });
 });
 
-// ── Restart ───────────────────────────────────────────────────
+// Restart
 resultRestartBtn.addEventListener("click", () => {
   clearFile();
   clearInterval(pollInterval);
@@ -260,5 +252,5 @@ resultRestartBtn.addEventListener("click", () => {
   setStatus("Processing", "");
 });
 
-// ── Utility ───────────────────────────────────────────────────
+// Utility
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

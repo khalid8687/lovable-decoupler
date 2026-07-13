@@ -1,0 +1,19 @@
+name: Redeploy Decoupler Site
+
+on:
+  workflow_dispatch:
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy public folder to Surge
+        env:
+          SURGE_TOKEN: ${{ secrets.SURGE_TOKEN }}
+        run: |
+          npm install -g surge
+          surge ./public lovable-decoupler.surge.sh --token "$SURGE_TOKEN"
+          echo "Redeployed lovable-decoupler.surge.sh!"

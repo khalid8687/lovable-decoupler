@@ -110,23 +110,23 @@ async function processDeployment(jobId, zipPath, options) {
     log("Cleaning up Lovable references...");
     decoupleProject(workDir, log);
 
-    // 2. Install dependencies
-    log("Installing dependencies via npm...");
-    await runCommand("npm install", workDir, log);
+    // 2. Install dependencies using Node 22 to satisfy TanStack Start & Rolldown engines
+    log("Installing dependencies via npm (using Node 22.12.0)...");
+    await runCommand("npx -p node@22.12.0 npm install", workDir, log);
 
-    // If on Linux, explicitly install the rolldown native binding to bypass the npm v10 optional dependency bug
+    // If on Linux, explicitly install the rolldown native binding using Node 22 to bypass the npm v10 optional dependency bug
     if (process.platform === "linux") {
-      log("Installing native bindings for Linux x64...");
+      log("Installing native bindings for Linux x64 (using Node 22.12.0)...");
       try {
-        await runCommand("npm install --save-optional @rolldown/binding-linux-x64-gnu", workDir, log);
+        await runCommand("npx -p node@22.12.0 npm install --save-optional @rolldown/binding-linux-x64-gnu", workDir, log);
       } catch (e) {
         log(`Warning: Failed to install optional native bindings: ${e.message}`);
       }
     }
 
-    // 3. Build the project
-    log("Building the project for production...");
-    await runCommand("npm run build", workDir, log);
+    // 3. Build the project using Node 22
+    log("Building the project for production (using Node 22.12.0)...");
+    await runCommand("npx -p node@22.12.0 npm run build", workDir, log);
 
     // 4. Detect deploy directory
     let deployDir = path.join(workDir, "dist", "client");

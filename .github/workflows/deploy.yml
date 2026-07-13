@@ -45,8 +45,10 @@ jobs:
 
       - name: Detect deploy directory and add 200.html
         run: |
+          DEPLOY_DIR=""
           for d in "$PROJECT_DIR/dist/client" "$PROJECT_DIR/dist" "$PROJECT_DIR/build" "$PROJECT_DIR/out"; do
             if [ -d "$d" ] && [ -f "$d/index.html" ]; then
+              DEPLOY_DIR="$d"
               echo "DEPLOY_DIR=$d" >> $GITHUB_ENV
               echo "Deploy directory: $d"
               break

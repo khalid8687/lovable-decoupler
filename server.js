@@ -309,7 +309,14 @@ export default defineConfig({
 // Helper to run shell commands asynchronously with output logging
 function runCommand(command, cwd, log) {
   return new Promise((resolve, reject) => {
-    const process = exec(command, { cwd });
+    // Force Node to prefer IPv4 when resolving localhost to bypass IPv6 connection refuse bugs in sandboxes
+    const process = exec(command, { 
+      cwd,
+      env: {
+        ...process.env,
+        NODE_OPTIONS: "--dns-result-order=ipv4first"
+      }
+    });
     let stdoutData = "";
 
     process.stdout.on("data", (data) => {

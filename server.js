@@ -306,11 +306,10 @@ export default defineConfig({
   }
 }
 
-// Helper to run shell commands asynchronously with output logging
 function runCommand(command, cwd, log) {
   return new Promise((resolve, reject) => {
     // Force Node to prefer IPv4 when resolving localhost to bypass IPv6 connection refuse bugs in sandboxes
-    const process = exec(command, { 
+    const child = exec(command, { 
       cwd,
       env: {
         ...process.env,
@@ -319,7 +318,7 @@ function runCommand(command, cwd, log) {
     });
     let stdoutData = "";
 
-    process.stdout.on("data", (data) => {
+    child.stdout.on("data", (data) => {
       stdoutData += data;
       const lines = data.trim().split("\n");
       lines.forEach(line => {
@@ -327,14 +326,14 @@ function runCommand(command, cwd, log) {
       });
     });
 
-    process.stderr.on("data", (data) => {
+    child.stderr.on("data", (data) => {
       const lines = data.trim().split("\n");
       lines.forEach(line => {
         if (line.trim()) log(`[Warn/Stderr] ${line.trim()}`);
       });
     });
 
-    process.on("close", (code) => {
+    child.on("close", (code) => {
       if (code === 0) {
         resolve(stdoutData);
       } else {

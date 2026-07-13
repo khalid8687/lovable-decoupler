@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Extract Surge URL from log (supports both http and https)
         const urlMatch = logItem.message.match(/https?:\/\/([\w.-]+)/);
-        const url = urlMatch ? urlMatch[0] : "#";
+        const url = urlMatch ? "https://" + urlMatch[1] : "#";
         
         setTimeout(() => {
           showSuccess(url);

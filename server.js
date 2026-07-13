@@ -181,7 +181,7 @@ async function processDeployment(jobId, zipPath, options) {
     const domain = match ? match[1] : targetDomain;
 
     if (domain) {
-      log(`Successfully published permanently to: http://${domain}`, "success");
+      log(`Successfully published permanently to: https://${domain}`, "success");
     } else {
       log("Deployment completed, but could not parse the Surge URL.", "success");
     }

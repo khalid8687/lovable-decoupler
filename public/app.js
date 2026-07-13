@@ -116,51 +116,47 @@ deployForm.addEventListener("submit", async e => {
   }
 });
 
-// ── Upload ZIP to GitHub Releases (reliable, no CORS issues) ─
-const UPLOAD_RELEASE_TAG = "uploads";
-
+// ── Upload ZIP via GitHub Contents API (CORS-friendly) ───────
 async function uploadToGitHubRelease(file) {
-  const apiBase = "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO;
   const headers = {
     "Authorization": "Bearer " + GITHUB_TOKEN,
     "Accept": "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28"
+    "X-GitHub-Api-Version": "2022-11-28",
+    "Content-Type": "application/json"
   };
 
-  // 1. Get or create the "uploads" release
-  let releaseId;
-  const listRes = await fetch(apiBase + "/releases/tags/" + UPLOAD_RELEASE_TAG, { headers });
-  if (listRes.ok) {
-    const rel = await listRes.json();
-    releaseId = rel.id;
-  } else {
-    // Create the release
-    const createRes = await fetch(apiBase + "/releases", {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ tag_name: UPLOAD_RELEASE_TAG, name: "Temporary Uploads", draft: false, prerelease: true })
-    });
-    if (!createRes.ok) throw new Error("Could not create upload release: " + createRes.status);
-    const rel = await createRes.json();
-    releaseId = rel.id;
+  // Convert file to base64
+  appendLog("Encoding ZIP for upload...");
+  const base64Content = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  // Upload to uploads branch via Contents API
+  const filePath = "uploads/upload-" + Date.now() + ".zip";
+  const apiUrl = "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/contents/" + filePath;
+
+  appendLog("Pushing ZIP to GitHub uploads branch...");
+  const res = await fetch(apiUrl, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({
+      message: "Temporary upload " + Date.now(),
+      content: base64Content,
+      branch: "uploads"
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error("GitHub upload failed: " + res.status + " " + err.substring(0, 200));
   }
 
-  // 2. Upload the ZIP as a release asset with a unique name
-  const assetName = "upload-" + Date.now() + ".zip";
-  const uploadRes = await fetch(
-    "https://uploads.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/releases/" + releaseId + "/assets?name=" + assetName,
-    {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/zip" },
-      body: file
-    }
-  );
-  if (!uploadRes.ok) {
-    const err = await uploadRes.text();
-    throw new Error("Asset upload failed: " + uploadRes.status + " " + err);
-  }
-  const asset = await uploadRes.json();
-  return asset.browser_download_url;
+  // Return the raw download URL
+  const rawUrl = "https://raw.githubusercontent.com/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/uploads/" + filePath;
+  return rawUrl;
 }
 
 // ── Trigger GitHub Actions workflow_dispatch ─────────────────

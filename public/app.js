@@ -79,9 +79,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Build Form Data
     const formData = new FormData();
     formData.append("file", selectedFile);
-    formData.append("domain", document.getElementById("domain").value);
-    formData.append("email", document.getElementById("email").value);
-    formData.append("password", document.getElementById("password").value);
 
     // Update UI states
     deployForm.parentElement.style.display = "none";

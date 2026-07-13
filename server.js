@@ -173,9 +173,12 @@ async function processDeployment(jobId, zipPath, options) {
     log("Deploying to Surge.sh...");
     const deployOutput = await runSurgeDeploy(deployDir, targetDomain, options.email, options.password, log);
 
+    // Strip ANSI escape codes to ensure correct parsing
+    const cleanDeployOutput = deployOutput.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, "");
+
     // Find the published domain from surge output
-    const match = deployOutput.match(/Success! - Published to ([\w.-]+)/);
-    const domain = match ? match[1] : options.domain;
+    const match = cleanDeployOutput.match(/Success! - Published to ([\w.-]+)/);
+    const domain = match ? match[1] : targetDomain;
 
     if (domain) {
       log(`Successfully published permanently to: http://${domain}`, "success");

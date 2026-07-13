@@ -347,7 +347,7 @@ function runSurgeDeploy(deployDir, domain, email, password, log) {
     log(`Starting Surge deployment process for domain: ${domain || "random"}...`);
     
     const domainArg = domain ? [domain] : [];
-    const args = ["-p", "node@22.12.0", "surge", deployDir, ...domainArg];
+    const args = ["-p", "node@22.12.0", "-p", "surge", "surge", deployDir, ...domainArg];
     
     // Force Node to prefer IPv4 when resolving localhost to bypass IPv6 connection refuse bugs
     const env = {

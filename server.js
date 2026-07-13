@@ -108,7 +108,7 @@ async function processDeployment(jobId, zipPath, options) {
 
     // 1. Run Decoupling Cleanup
     log("Cleaning up Lovable references...");
-    decoupleProject(workDir, log);
+    await decoupleProject(workDir, log);
 
     // 2. Install dependencies using Node 22 to satisfy TanStack Start & Rolldown engines
     log("Installing dependencies via npm (using Node 22.12.0)...");
@@ -171,8 +171,133 @@ async function processDeployment(jobId, zipPath, options) {
   }
 }
 
+// Helper to recursively find files in a directory matching a filter
+function findFilesRecursive(dir, filter) {
+  let results = [];
+  try {
+    const list = fs.readdirSync(dir);
+    list.forEach(file => {
+      const filePath = path.join(dir, file);
+      const stat = fs.statSync(filePath);
+      if (stat && stat.isDirectory()) {
+        if (file !== "node_modules" && file !== ".git" && file !== "temp" && file !== "dist") {
+          results = results.concat(findFilesRecursive(filePath, filter));
+        }
+      } else if (filter(file)) {
+        results.push(filePath);
+      }
+    });
+  } catch (e) {
+    console.error("Error reading directory in recursive search:", e);
+  }
+  return results;
+}
+
+// Helper to download an external file asynchronously
+async function downloadFile(url, destPath) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return false;
+    const buffer = await res.arrayBuffer();
+    fs.writeFileSync(destPath, Buffer.from(buffer));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Helper to generate a beautiful SVG placeholder locally
+function generateSvgPlaceholder(name, destPath) {
+  const cleanName = name
+    .split(/[-_]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#g)" />
+  <circle cx="400" cy="240" r="60" fill="#06b6d4" opacity="0.1" />
+  <rect x="360" y="200" width="80" height="80" rx="10" stroke="#06b6d4" stroke-width="4" fill="none" opacity="0.8" />
+  <circle cx="385" cy="225" r="8" fill="#06b6d4" opacity="0.8" />
+  <path d="M364 268 L390 240 L410 260 L425 245 L436 256" stroke="#06b6d4" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.8" />
+  <text x="50%" y="360" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="bold" fill="#f1f5f9" text-anchor="middle">${cleanName}</text>
+  <text x="50%" y="400" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#06b6d4" letter-spacing="2" text-anchor="middle">IMAGE PLACEHOLDER</text>
+</svg>`;
+  fs.writeFileSync(destPath, svg, "utf8");
+}
+
+// Recursively processes all .asset.json files and localizes external Lovable image URLs
+async function fixAssetsAsync(dir, log) {
+  const assetFiles = findFilesRecursive(dir, (file) => file.endsWith(".asset.json"));
+  log(`Found ${assetFiles.length} asset pointer files recursively.`);
+
+  const publicAssetsDir = path.join(dir, "public", "assets");
+  if (!fs.existsSync(publicAssetsDir)) {
+    fs.mkdirSync(publicAssetsDir, { recursive: true });
+  }
+
+  for (const filePath of assetFiles) {
+    try {
+      const assetData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      if (assetData.url) {
+        const url = assetData.url;
+        const basename = path.basename(filePath, ".asset.json");
+        
+        // Skip already localized paths
+        if (url.startsWith("/assets/")) {
+          continue;
+        }
+
+        // Determine file extension
+        let ext = ".png";
+        if (url.includes(".svg")) ext = ".svg";
+        else if (url.includes(".jpg") || url.includes(".jpeg")) ext = ".jpg";
+        else if (url.includes(".webp")) ext = ".webp";
+        else if (url.includes(".gif")) ext = ".gif";
+
+        const filename = `${basename}${ext}`;
+        const localDestPath = path.join(publicAssetsDir, filename);
+        const webPath = `/assets/${filename}`;
+
+        const isLovableAsset = url.startsWith("http") || url.includes("/__l5e/assets-v1/");
+
+        if (isLovableAsset) {
+          let downloadSuccess = false;
+
+          if (url.startsWith("http")) {
+            log(`Attempting to download remote asset: ${url}...`);
+            downloadSuccess = await downloadFile(url, localDestPath);
+          }
+
+          if (downloadSuccess) {
+            assetData.url = webPath;
+            log(`Downloaded and localized: ${webPath}`);
+          } else {
+            // Generate clean SVG fallback
+            const placeholderName = basename.replace(/\.\w+$/, "");
+            const placeholderFilename = `${placeholderName}.svg`;
+            const placeholderPath = path.join(publicAssetsDir, placeholderFilename);
+            generateSvgPlaceholder(placeholderName, placeholderPath);
+            assetData.url = `/assets/${placeholderFilename}`;
+            log(`Generated fallback placeholder for crashed asset: ${assetData.url}`);
+          }
+
+          fs.writeFileSync(filePath, JSON.stringify(assetData, null, 2), "utf8");
+        }
+      }
+    } catch (e) {
+      log(`Error processing asset ${path.basename(filePath)}: ${e.message}`);
+    }
+  }
+}
+
 // Cleanup function to remove Lovable files and references
-function decoupleProject(dir, log) {
+async function decoupleProject(dir, log) {
   // A. Delete proprietary folders/files
   const pathsToDelete = [
     path.join(dir, ".lovable"),
@@ -281,27 +406,8 @@ export default defineConfig({
     }
   }
 
-  // E. Fix crashed asset JSON images
-  const assetsDir = path.join(dir, "src", "assets");
-  if (fs.existsSync(assetsDir)) {
-    try {
-      const files = fs.readdirSync(assetsDir);
-      files.forEach(file => {
-        if (file.endsWith(".asset.json")) {
-          const filePath = path.join(assetsDir, file);
-          const assetData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-          if (assetData.url && assetData.url.includes("/__l5e/assets-v1/")) {
-            // Point to local favicon.ico as a safe fallback logo
-            assetData.url = "/favicon.ico";
-            fs.writeFileSync(filePath, JSON.stringify(assetData, null, 2), "utf8");
-            log(`Redirected crashed lovable asset link in: src/assets/${file}`);
-          }
-        }
-      });
-    } catch (e) {
-      log(`Error fixing assets: ${e.message}`);
-    }
-  }
+  // E. Fix crashed asset JSON images recursively by downloading or generating SVG placeholders
+  await fixAssetsAsync(dir, log);
 }
 
 function runCommand(command, cwd, log) {

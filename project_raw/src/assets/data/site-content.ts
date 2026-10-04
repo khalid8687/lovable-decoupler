@@ -1,0 +1,73 @@
+export type Lang = "ar" | "en";
+
+export const features = [
+  { icon: "Camera", ar: ["طلب الدواء بتصوير الروشتة", "ارفع صورة الروشتة أو التحليل ليقرأها الذكاء الاصطناعي ويجهز الطلب لمراجعة الصيدلي فوراً."], en: ["Order by prescription photo", "Upload a prescription or lab photo; AI reads it and prepares the order for instant pharmacist review."] },
+  { icon: "Mic", ar: ["محادثة صوتية وكاميرا حية", "تحدث بالصوت مباشرة وافتح الكاميرا لتوضيح الأعراض والتقاط صورة بإذنك."], en: ["Live voice & camera", "Talk by voice and open the camera to show what's wrong — photos are captured only with your permission."] },
+  { icon: "FolderHeart", ar: ["ملف صحي وسجل طلبات موحد", "بروفايل خاص بك يحفظ بياناتك وتاريخ علاجك وطلباتك السابقة بلمسة واحدة."], en: ["Unified health profile", "A private profile keeping your details, treatment history and past orders one tap away."] },
+  { icon: "Pill", ar: ["تتبع ذكي لنفاد الكبسولات", "حساب تلقائي للأقراص المتبقية وتنبيه الصيدلية وتنبيهك قبل انتهاء العبوة."], en: ["Smart refill tracking", "Counts remaining pills and alerts you and the pharmacy before the pack runs out."] },
+  { icon: "BellRing", ar: ["تذكير بالمواعيد دون تحميل", "تنبيهات يومية بمواعيد الجرعات عبر التقويم وواتساب وتطبيق الـ PWA الخفيف."], en: ["Reminders, no install", "Daily dose reminders via calendar, WhatsApp and the lightweight PWA."] },
+  { icon: "HandHeart", ar: ["واجهة مخصصة لكبار السن", "تجربة مبسطة جداً لتأكيد تناول الدواء أو الاطمئنان بضغطة زر واحدة."], en: ["Made for seniors", "A very simple experience — confirm a dose or check in with a single tap."] },
+  { icon: "ShieldAlert", ar: ["فحص التفاعلات الدوائية", "تنبيه تلقائي لك وللصيدلي إذا تعارض الدواء الجديد مع أدوية سابقة في ملفك."], en: ["Drug interaction check", "Automatic alerts when a new medicine conflicts with ones already in your file."] },
+  { icon: "HeartPulse", ar: ["كشف التعارض مع الحالات المزمنة", "تحذير فوري عند طلب أدوية شائعة قد ترفع الضغط أو تضر الكلى والسكري."], en: ["Chronic-condition safety", "Instant warnings when common drugs may affect blood pressure, kidneys or diabetes."] },
+  { icon: "Utensils", ar: ["إرشادات الاستخدام والأكل", "شرح مبسط: قبل الأكل أم بعده، مع الأطعمة الممنوعة مع الدواء."], en: ["Usage & food guidance", "Clear notes: before or after meals, plus foods to avoid."] },
+  { icon: "Repeat", ar: ["البديل المحلي المتوفر", "اقتراح بدائل بنفس المادة الفعالة والتركيز عند نقص المستورد أو غلاء سعره."], en: ["Local alternatives", "Same active ingredient and strength when imports are scarce or pricey."] },
+  { icon: "FlaskConical", ar: ["شرح نتائج التحاليل", "قراءة صور التحاليل وتبسيط الأرقام وتوجيهك للتخصص الأنسب."], en: ["Lab results explained", "Reads lab photos, simplifies numbers and points you to the right specialty."] },
+  { icon: "Users", ar: ["بروفايل عائلي متكامل", "تابع حسابات الأسرة كلها من نفس الهاتف لطلب أدويتهم ومتابعة مواعيدهم."], en: ["Family mode", "Manage the whole family's orders and schedules from one phone."] },
+  { icon: "Stethoscope", ar: ["الأعراض الجانبية الشائعة", "نصائح أولية معتمدة للتعامل مع الآثار العادية للدواء كالدوار أو الحموضة."], en: ["Common side effects", "Approved first tips for normal effects like dizziness or heartburn."] },
+  { icon: "Siren", ar: ["إسعافات أولية وطوارئ", "رصد الكلمات الخطرة وتوجيهك فوراً لخطوات الإسعاف مع زر اتصال بالطوارئ."], en: ["First aid & emergencies", "Detects danger words and guides you to first-aid steps with a direct emergency call."] },
+] as const;
+
+/* Short labels for the phone showcase tiles (index-aligned with features) */
+export const shortLabels: Record<Lang, string[]> = {
+  ar: ["تصوير الروشتة", "محادثة صوتية", "ملفك الصحي", "تتبع الكبسولات", "التذكيرات", "كبار السن", "تفاعلات دوائية", "أمراض مزمنة", "إرشادات الأكل", "بديل متوفر", "التحاليل", "بروفايل العائلة", "الأعراض الجانبية", "إسعافات أولية"],
+  en: ["Rx photo", "Voice chat", "Health file", "Refill tracker", "Reminders", "Seniors", "Interactions", "Chronic safety", "Food guide", "Alternatives", "Lab results", "Family mode", "Side effects", "First aid"],
+};
+
+export const t = {
+  ar: {
+    nav: ["المزايا", "كيف يعمل", "للصيدلية", "كبار السن"],
+    cta: "ابدأ الآن",
+    heroTag: "صيدليتك معك أينما كنت",
+    heroTitle: ["ترافقك خطوة بخطوة", "الروشتات والطلبات"],
+    heroSub: "صوّر روشتتك، تابع جرعاتك، واستلم ردود الصيدلي على هاتفك — بدون تحميل أي برنامج.",
+    heroBtn2: "شاهد المزايا",
+    stats: [["٢", "صيدلية متصلة"], ["٢٤/٧", "مساعد ذكي"], ["٠", "تحميلات مطلوبة"]],
+    app: { hello: "صباح الخير، أحمد", next: "الجرعة القادمة ٩:٠٠ م", left: "متبقي ٦ أقراص", sections: "الأقسام", all: "الكل", more: "و ٧ مزايا" },
+    featTag: "كل ما تحتاجه", featTitle: "مزايا صُممت لراحتك",
+    howTag: "ثلاث خطوات", howTitle: "من الصورة إلى باب البيت",
+    how: [["صوّر أو اكتب", "ارفع الروشتة أو اكتب اسم الدواء أو تحدث بالصوت."], ["مراجعة الصيدلي", "يصل الطلب فوراً لصفحة الصيدلية بإشعار على الموبايل والكمبيوتر."], ["إشعار بالرد", "يصلك الرد والمتابعة على هاتفك عبر التطبيق أو واتساب أو التقويم."]],
+    pharmTag: "لوحة الصيدلية", pharmTitle: "صيدليتان، لوحة واحدة",
+    pharmSub: "كل طلب، كل روشتة، وكل تنبيه نفاد يصل لفريق الصيدلية لحظياً. والذكاء الاصطناعي لا يقدم استشارة إلا بإذن الطبيب.",
+    pharmList: ["إشعارات فورية على الموبايل والكمبيوتر", "بطاقة كاملة لكل عميل باحتياجاته", "تنبيه قبل انتهاء علبة الدواء", "موافقة الطبيب قبل أي استشارة"],
+    elderTag: "كبار السن", elderTitle: "ضغطة واحدة تطمئن الجميع",
+    elderSub: "إشعار بسيط بخط كبير وزر واحد: «أنا بخير» أو «أحتاج مساعدة». والأسرة والصيدلية على اطلاع دائم.",
+    elderOk: "أنا بخير", elderHelp: "أحتاج مساعدة", elderQ: "هل تناولت دواء الصباح؟",
+    notifTitle: "تنبيهات تصل لأندرويد وآيفون بدون تحميل",
+    notif: ["تطبيق ويب PWA", "واتساب", "التقويم iCalendar"],
+    final: "جاهز تبدأ؟", finalSub: "سجّل برقم هاتفك وابدأ أول طلب في أقل من دقيقة.",
+    footer: "جميع الحقوق محفوظة",
+  },
+  en: {
+    nav: ["Features", "How it works", "Pharmacy", "Seniors"],
+    cta: "Get started",
+    heroTag: "Your pharmacy, wherever you are",
+    heroTitle: ["With you step by step", "Prescriptions & orders"],
+    heroSub: "Snap your prescription, track your doses and get pharmacist replies on your phone — nothing to install.",
+    heroBtn2: "See features",
+    stats: [["2", "Connected pharmacies"], ["24/7", "Smart assistant"], ["0", "Downloads needed"]],
+    app: { hello: "Good morning, Ahmed", next: "Next dose 9:00 PM", left: "6 pills left", sections: "Sections", all: "All", more: "+7 more" },
+    featTag: "Everything you need", featTitle: "Features built for your comfort",
+    howTag: "Three steps", howTitle: "From photo to your door",
+    how: [["Snap or type", "Upload a prescription, type a medicine name, or just speak."], ["Pharmacist review", "The order reaches the pharmacy instantly with mobile & desktop alerts."], ["Reply notification", "Get the reply and follow-ups via the app, WhatsApp or your calendar."]],
+    pharmTag: "Pharmacy dashboard", pharmTitle: "Two pharmacies, one dashboard",
+    pharmSub: "Every order, prescription and refill alert reaches the team in real time. The AI never gives advice without the doctor's approval.",
+    pharmList: ["Instant alerts on mobile & desktop", "A full card for every customer", "Alerts before a pack runs out", "Doctor approval before any advice"],
+    elderTag: "Seniors", elderTitle: "One tap puts everyone at ease",
+    elderSub: "A simple, large-print notification with one button: “I'm fine” or “I need help”. Family and pharmacy stay informed.",
+    elderOk: "I'm fine", elderHelp: "I need help", elderQ: "Did you take your morning dose?",
+    notifTitle: "Alerts reach Android & iPhone with no install",
+    notif: ["PWA web app", "WhatsApp", "iCalendar"],
+    final: "Ready to start?", finalSub: "Sign up with your phone number and place your first order in under a minute.",
+    footer: "All rights reserved",
+  },
+};

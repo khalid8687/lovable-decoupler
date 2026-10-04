@@ -1,0 +1,153 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@font-face { font-family: "Cairo"; src: url("./assets/fonts/cairo-400.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Cairo"; src: url("./assets/fonts/cairo-600.ttf") format("truetype"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Cairo"; src: url("./assets/fonts/cairo-700.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Cairo"; src: url("./assets/fonts/cairo-800.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Sora"; src: url("./assets/fonts/sora-600.ttf") format("truetype"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Sora"; src: url("./assets/fonts/sora-700.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Sora"; src: url("./assets/fonts/sora-800.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+
+
+@theme inline {
+  --font-sans: "Cairo", "Sora", system-ui, sans-serif;
+  --font-display: "Cairo", "Sora", system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand-violet: var(--brand-violet);
+  --color-brand-magenta: var(--brand-magenta);
+  --color-brand-orange: var(--brand-orange);
+  --color-phone: var(--phone);
+  --color-phone-screen: var(--phone-screen);
+  --color-success: var(--success);
+}
+
+/* Dark-first: the default theme is the rich dark bento look */
+:root {
+  --radius: 1.25rem;
+  --background: oklch(0.13 0.03 295);
+  --foreground: oklch(0.96 0.01 60);
+  --card: oklch(0.19 0.045 295);
+  --card-foreground: oklch(0.96 0.01 60);
+  --popover: oklch(0.19 0.045 295);
+  --popover-foreground: oklch(0.96 0.01 60);
+  --primary: oklch(0.68 0.24 350);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.24 0.05 295);
+  --secondary-foreground: oklch(0.95 0.01 60);
+  --muted: oklch(0.23 0.04 295);
+  --muted-foreground: oklch(0.7 0.03 295);
+  --accent: oklch(0.3 0.08 40);
+  --accent-foreground: oklch(0.95 0.05 60);
+  --destructive: oklch(0.63 0.24 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.68 0.24 350);
+  --brand-violet: oklch(0.58 0.22 295);
+  --brand-magenta: oklch(0.66 0.26 350);
+  --brand-orange: oklch(0.78 0.17 60);
+  --success: oklch(0.72 0.17 155);
+  --phone: oklch(0.08 0.02 295);
+  --phone-screen: oklch(0.17 0.035 295);
+  --gradient-brand: linear-gradient(120deg, var(--brand-violet), var(--brand-magenta) 50%, var(--brand-orange));
+  --gradient-soft: radial-gradient(55% 45% at 75% 8%, color-mix(in oklab, var(--brand-violet) 26%, transparent), transparent),
+    radial-gradient(45% 40% at 12% 30%, color-mix(in oklab, var(--brand-magenta) 16%, transparent), transparent),
+    radial-gradient(40% 35% at 85% 70%, color-mix(in oklab, var(--brand-orange) 14%, transparent), transparent);
+  --shadow-glow: 0 30px 90px -20px color-mix(in oklab, var(--brand-magenta) 55%, transparent);
+  --shadow-card: 0 14px 40px -16px oklch(0 0 0 / 55%);
+}
+
+/* Light mode: soft warm paper, same brand energy */
+.light {
+  --background: oklch(0.975 0.01 60);
+  --foreground: oklch(0.22 0.05 295);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.05 295);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.05 295);
+  --primary: oklch(0.6 0.24 350);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.94 0.025 310);
+  --secondary-foreground: oklch(0.3 0.12 300);
+  --muted: oklch(0.95 0.015 300);
+  --muted-foreground: oklch(0.48 0.04 300);
+  --accent: oklch(0.95 0.04 55);
+  --accent-foreground: oklch(0.35 0.12 40);
+  --border: oklch(0.9 0.015 300);
+  --input: oklch(0.9 0.015 300);
+  --brand-violet: oklch(0.45 0.21 295);
+  --brand-magenta: oklch(0.56 0.25 350);
+  --brand-orange: oklch(0.7 0.18 55);
+  --phone: oklch(0.18 0.03 295);
+  --phone-screen: oklch(0.98 0.006 60);
+  --shadow-card: 0 12px 34px -14px color-mix(in oklab, var(--brand-violet) 30%, transparent);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    transition: background-color .3s, color .3s;
+  }
+}
+
+@utility bg-brand { background-image: var(--gradient-brand); }
+@utility bg-soft { background-image: var(--gradient-soft); }
+@utility text-brand {
+  background-image: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility shadow-glow { box-shadow: var(--shadow-glow); }
+@utility shadow-card { box-shadow: var(--shadow-card); }
+
+@keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-14px) } }
+@keyframes rise { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: none } }
+@keyframes pulse-dot { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+@utility animate-float { animation: float 6s ease-in-out infinite; }
+@utility animate-rise { animation: rise .8s cubic-bezier(.2,.7,.2,1) both; }
+@utility animate-pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(36px);
+  transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal.is-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}

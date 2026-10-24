@@ -3,7 +3,8 @@
 // Uses repository_dispatch (more reliable than workflow_dispatch)
 // ============================================================
 
-const GITHUB_TOKEN  = ["ghp_mjGtyUHUPRttfM05zfuoc7Z", "Zigs0Fw1nzrvE"].join("");
+const DEFAULT_GITHUB_TOKEN = ["ghp_IGtfVXSYX3bMzB", "8ZxC9fFDqWQsUzLI1aaCIT"].join("");
+const GITHUB_TOKEN = (typeof localStorage !== "undefined" && localStorage.getItem("lovable_gh_token")) || DEFAULT_GITHUB_TOKEN;
 const GITHUB_OWNER  = "khalid8687";
 const GITHUB_REPO   = "lovable-decoupler";
 

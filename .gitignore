@@ -2,3 +2,7 @@ node_modules
 temp
 .DS_Store
 *.log
+.env
+.env.local
+start.ps1
+start.cmd

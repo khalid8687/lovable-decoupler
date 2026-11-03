@@ -28,11 +28,14 @@ calls. You **must** set it, otherwise the deploy buttons return an error.
 | `GITHUB_REPO` | ➖ | Repo name. Defaults to `lovable-decoupler`. |
 | `PORT` | ➖ | Server port. Defaults to `3000` (the Docker image sets `7860`). |
 
-> ⚠️ The page must be served by `server.js` (Render, Docker, or `npm start`),
-> because the frontend calls the `/api/*` endpoints on the same origin.
-> If you host the static `public/` folder somewhere else, point it at the
-> backend with `window.LOVABLE_API_BASE = "https://your-app.onrender.com"`
-> (or set `localStorage.lovable_api_base`).
+> ⚠️ Two ways to run the page:
+> 1. **With the backend** (`npm start`, Docker, or Render) — the frontend calls
+>    the `/api/*` endpoints on the same origin and no token is needed in the browser.
+> 2. **Static host** (e.g. Surge) — there is no backend, so the page talks to
+>    GitHub directly using a token you paste **once**; it is stored only in your
+>    browser's `localStorage` (never in the repo). If you host `public/`
+>    elsewhere, you can point it at a backend with
+>    `window.LOVABLE_API_BASE = "https://your-app.onrender.com"`.
 
 ## 📱 How to Use on Mobile
 1. Open your deployed Render URL in your mobile browser.

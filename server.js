@@ -99,6 +99,11 @@ const GITHUB_OWNER = process.env.GITHUB_OWNER || "khalid8687";
 const GITHUB_REPO = process.env.GITHUB_REPO || "lovable-decoupler";
 const GITHUB_API = "https://api.github.com";
 
+// Health check: lets the frontend know a backend is available here.
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, github: !!GITHUB_TOKEN });
+});
+
 function githubHeaders(extra = {}) {
   return {
     Authorization: `Bearer ${GITHUB_TOKEN}`,

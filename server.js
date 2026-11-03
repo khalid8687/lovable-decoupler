@@ -671,7 +671,8 @@ function runSurgeDeploy(deployDir, domain, email, password, log) {
 // Global error handling middleware to prevent HTML error pages on failure
 app.use((err, req, res, next) => {
   console.error("Unhandled server error:", err);
-  res.status(500).json({ error: err.message || "Internal Server Error" });
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || "Internal Server Error" });
 });
 
 // Start server

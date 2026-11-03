@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: lovable-decoupler
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      # Set this in the Render dashboard (it is never stored in the repo).
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_OWNER
+        value: khalid8687
+      - key: GITHUB_REPO
+        value: lovable-decoupler

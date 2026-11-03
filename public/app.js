@@ -1,12 +1,19 @@
 // ============================================================
-// GitHub Actions-powered Deploy Client
-// Uses repository_dispatch (more reliable than workflow_dispatch)
+// Deploy client — talks only to our own backend (/api/*).
+// The GitHub token lives on the server (GITHUB_TOKEN env var)
+// and is never embedded in this public file.
 // ============================================================
 
-const DEFAULT_GITHUB_TOKEN = ["ghp_IGtfVXSYX3bMzB", "8ZxC9fFDqWQsUzLI1aaCIT"].join("");
-const GITHUB_TOKEN = (typeof localStorage !== "undefined" && localStorage.getItem("lovable_gh_token")) || DEFAULT_GITHUB_TOKEN;
-const GITHUB_OWNER  = "khalid8687";
-const GITHUB_REPO   = "lovable-decoupler";
+// Base URL of the backend that proxies GitHub.
+//   ""  -> same origin (default; works when this page is served
+//          by server.js, e.g. on Render or locally).
+// You can point a statically-hosted copy of this page at a remote
+// backend by setting window.LOVABLE_API_BASE or
+// localStorage.lovable_api_base to e.g. "https://your-app.onrender.com".
+const API_BASE =
+  (typeof window !== "undefined" && window.LOVABLE_API_BASE) ||
+  (typeof localStorage !== "undefined" && localStorage.getItem("lovable_api_base")) ||
+  "";
 
 // DOM Elements
 const dropZone         = document.getElementById("drop-zone");
@@ -114,66 +121,50 @@ deployForm.addEventListener("submit", async e => {
   }
 });
 
-// Upload ZIP to GitHub uploads branch via Contents API
+// Upload ZIP to our backend, which forwards it to GitHub's uploads branch
 async function uploadToGitHub(file) {
-  const headers = {
-    "Authorization": "Bearer " + GITHUB_TOKEN,
-    "Accept": "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-    "Content-Type": "application/json"
-  };
-
   appendLog("Encoding ZIP for upload...");
-  const base64Content = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 
-  const filePath = "uploads/upload-" + Date.now() + ".zip";
-  const apiUrl = "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/contents/" + filePath;
+  const formData = new FormData();
+  formData.append("file", file);
 
-  appendLog("Pushing ZIP to GitHub uploads branch...");
-  const res = await fetch(apiUrl, {
-    method: "PUT",
-    headers,
-    body: JSON.stringify({
-      message: "Temporary upload " + Date.now(),
-      content: base64Content,
-      branch: "uploads"
-    })
+  appendLog("Uploading ZIP to the server...");
+  const res = await fetch(API_BASE + "/api/upload", {
+    method: "POST",
+    body: formData
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error("GitHub upload failed: " + res.status + " " + err.substring(0, 200));
+    let msg = String(res.status);
+    try {
+      const data = await res.json();
+      if (data && data.error) msg = data.error;
+    } catch (e) { /* ignore */ }
+    throw new Error("GitHub upload failed: " + msg);
   }
 
-  return "https://raw.githubusercontent.com/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/uploads/" + filePath;
+  const data = await res.json();
+  if (!data.zipUrl) {
+    throw new Error("GitHub upload failed: no URL returned by the server");
+  }
+  return data.zipUrl;
 }
 
-// Trigger via repository_dispatch (no workflow_dispatch validation issues)
+// Ask our backend to trigger the deploy workflow (repository_dispatch)
 async function triggerDeploy(zipUrl, runToken) {
-  const res = await fetch(
-    "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/dispatches",
-    {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + GITHUB_TOKEN,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        event_type: "deploy",
-        client_payload: { zip_url: zipUrl, run_token: runToken }
-      })
-    }
-  );
-  if (res.status !== 204) {
-    const body = await res.text();
-    throw new Error("Failed to trigger deploy: " + res.status + " - " + body);
+  const res = await fetch(API_BASE + "/api/dispatch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ zipUrl, runToken })
+  });
+
+  if (!res.ok) {
+    let msg = String(res.status);
+    try {
+      const data = await res.json();
+      if (data && data.error) msg = data.error;
+    } catch (e) { /* ignore */ }
+    throw new Error("Failed to trigger deploy: " + msg);
   }
 }
 
@@ -197,17 +188,19 @@ function startPolling(runToken) {
     const timeStr = minutes > 0 ? minutes + "m " + seconds + "s" : seconds + "s";
 
     try {
-      const resultUrl = "https://raw.githubusercontent.com/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/results/result-" + runToken + ".txt?t=" + Date.now();
-      const res = await fetch(resultUrl);
+      const res = await fetch(API_BASE + "/api/result/" + encodeURIComponent(runToken), { cache: "no-store" });
 
       if (res.ok) {
-        const surgeUrl = (await res.text()).trim();
-        clearInterval(pollInterval);
-        appendLog("Build complete after " + timeStr + "!", "success");
-        appendLog("Successfully published permanently to: " + surgeUrl, "success");
-        setStatus("Success \u2713", "success");
-        showSuccess(surgeUrl);
-        return;
+        const data = await res.json();
+        if (data.ready && data.url) {
+          const surgeUrl = data.url;
+          clearInterval(pollInterval);
+          appendLog("Build complete after " + timeStr + "!", "success");
+          appendLog("Successfully published permanently to: " + surgeUrl, "success");
+          setStatus("Success \u2713", "success");
+          showSuccess(surgeUrl);
+          return;
+        }
       }
 
       if (elapsed % 30000 === 0) {

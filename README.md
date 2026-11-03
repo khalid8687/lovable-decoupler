@@ -15,6 +15,25 @@ Click the button below to deploy this server permanently in the cloud for free, 
 4. Render will automatically detect the `Dockerfile` and build/deploy the application.
 5. Once ready, you'll receive a permanent public URL (e.g. `https://lovable-decoupler.onrender.com`) to use from your mobile phone!
 
+## 🔑 Configuration (required)
+
+The app never stores a GitHub token in the browser. Instead, the server
+(`server.js`) reads it from an environment variable and proxies the GitHub API
+calls. You **must** set it, otherwise the deploy buttons return an error.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `GITHUB_TOKEN` | ✅ | A GitHub token that can write to this repository (`contents: write` + `actions: write`). Use a **fine-grained** token scoped to this repo only. |
+| `GITHUB_OWNER` | ➖ | Repo owner. Defaults to `khalid8687`. |
+| `GITHUB_REPO` | ➖ | Repo name. Defaults to `lovable-decoupler`. |
+| `PORT` | ➖ | Server port. Defaults to `3000` (the Docker image sets `7860`). |
+
+> ⚠️ The page must be served by `server.js` (Render, Docker, or `npm start`),
+> because the frontend calls the `/api/*` endpoints on the same origin.
+> If you host the static `public/` folder somewhere else, point it at the
+> backend with `window.LOVABLE_API_BASE = "https://your-app.onrender.com"`
+> (or set `localStorage.lovable_api_base`).
+
 ## 📱 How to Use on Mobile
 1. Open your deployed Render URL in your mobile browser.
 2. Select your Lovable project `.zip` file from your phone's file storage.

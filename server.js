@@ -88,6 +88,130 @@ app.post("/api/deploy", upload.single("file"), (req, res) => {
   res.json({ jobId });
 });
 
+// ============================================================
+// GitHub proxy endpoints
+// ------------------------------------------------------------
+// The GitHub token lives ONLY here, as the GITHUB_TOKEN environment
+// variable. It is never sent to (or embedded in) the browser.
+// ============================================================
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
+const GITHUB_OWNER = process.env.GITHUB_OWNER || "khalid8687";
+const GITHUB_REPO = process.env.GITHUB_REPO || "lovable-decoupler";
+const GITHUB_API = "https://api.github.com";
+
+function githubHeaders(extra = {}) {
+  return {
+    Authorization: `Bearer ${GITHUB_TOKEN}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "lovable-decoupler",
+    ...extra
+  };
+}
+
+// Upload a ZIP to the uploads branch and return its raw URL.
+app.post("/api/upload", upload.single("file"), async (req, res) => {
+  if (!GITHUB_TOKEN) {
+    return res.status(500).json({ error: "Server is not configured: GITHUB_TOKEN is missing." });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+
+  const zipPath = req.file.path;
+  try {
+    const base64Content = fs.readFileSync(zipPath).toString("base64");
+    const filePath = "uploads/upload-" + Date.now() + ".zip";
+    const apiUrl = `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
+
+    const ghRes = await fetch(apiUrl, {
+      method: "PUT",
+      headers: githubHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        message: "Temporary upload " + Date.now(),
+        content: base64Content,
+        branch: "uploads"
+      })
+    });
+
+    if (!ghRes.ok) {
+      const body = await ghRes.text();
+      return res.status(ghRes.status).json({
+        error: `GitHub upload failed: ${ghRes.status} ${body.slice(0, 200)}`
+      });
+    }
+
+    const zipUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/uploads/${filePath}`;
+    res.json({ zipUrl });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  } finally {
+    try {
+      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+    } catch (e) {
+      console.error("Failed to remove temp upload:", e.message);
+    }
+  }
+});
+
+// Trigger the deploy workflow via repository_dispatch.
+app.post("/api/dispatch", async (req, res) => {
+  if (!GITHUB_TOKEN) {
+    return res.status(500).json({ error: "Server is not configured: GITHUB_TOKEN is missing." });
+  }
+
+  const { zipUrl, runToken } = req.body || {};
+  if (!zipUrl || !runToken) {
+    return res.status(400).json({ error: "zipUrl and runToken are required" });
+  }
+
+  try {
+    const ghRes = await fetch(`${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/dispatches`, {
+      method: "POST",
+      headers: githubHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        event_type: "deploy",
+        client_payload: { zip_url: zipUrl, run_token: runToken }
+      })
+    });
+
+    if (ghRes.status !== 204) {
+      const body = await ghRes.text();
+      return res.status(ghRes.status).json({
+        error: `Failed to trigger deploy: ${ghRes.status} ${body.slice(0, 200)}`
+      });
+    }
+
+    res.status(204).end();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Poll for the deploy result written to the public results branch.
+app.get("/api/result/:runToken", async (req, res) => {
+  // Sanitize to avoid path traversal in the raw URL.
+  const runToken = String(req.params.runToken || "").replace(/[^a-z0-9]/gi, "").slice(0, 40);
+  if (!runToken) {
+    return res.status(400).json({ error: "Invalid run token" });
+  }
+
+  try {
+    const url = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/results/result-${runToken}.txt?t=${Date.now()}`;
+    const ghRes = await fetch(url, { cache: "no-store" });
+    if (!ghRes.ok) {
+      return res.json({ ready: false });
+    }
+    const text = (await ghRes.text()).trim();
+    if (!text) {
+      return res.json({ ready: false });
+    }
+    res.json({ ready: true, url: text });
+  } catch (e) {
+    res.json({ ready: false });
+  }
+});
+
 // Main process pipeline
 async function processDeployment(jobId, zipPath, options) {
   const log = (message, type = "info") => {
